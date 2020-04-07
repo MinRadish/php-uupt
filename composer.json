@@ -1,0 +1,22 @@
+{
+    "name": "min-radish/php-uupt",
+    "description": "PHP对UU跑腿API的调用",
+    "keywords": ["PHP", "UUPT", "API"],
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Radish",
+            "email": "1004622952@qq.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.0.0",
+        "min-radish/php-curl": "~1.2"
+    },
+    "autoload": {
+        "psr-4": {
+          "Radish\\Uupt\\": "src/"
+        }
+    }
+}
