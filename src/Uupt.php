@@ -9,14 +9,20 @@ namespace Radish\Uupt;
 
 abstract class Uupt
 {
-    protected static $mchId = '';
-    protected static $appId = '';
+    protected $appId = '';
+    protected $appKey = '';
+    protected $openId = '';
+    protected $url = 'https://openapi.uupt.com/v2_0/';
 
     use Traits\Common;
     use Traits\Business;
 
     public function __construct(array $options = [])
     {
-        
+        foreach ($options as $key => $val) {
+            if ($val && property_exists($this, $key)) {
+                $this->$key = $val;
+            }
+        }
     }
 }

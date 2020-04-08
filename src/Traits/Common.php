@@ -11,7 +11,7 @@ use Radish\Network\Curl;
 
 trait Common
 {
-
+    use CodeMap;
     /**
      * XML转换成数组
      * @param  xml $xml 
@@ -70,24 +70,19 @@ trait Common
 
     /**
      * 请求响应错误信息
-     * @param  xml $xml 响应数据
+     * @param  json $json 响应数据
      * @param  String $fun 获取对应接口返回错误码信息
      * @return mixed    响应结果
      */
-    protected function getMessage($xml, $fun = '')
+    protected function getMessage($json, $message = '未知错误！')
     {
-        $array = $this->xmlToArray($xml);
-        if ($array['return_code'] == 'FAIL' || $array['result_code'] == 'FAIL') {
-            $msg = '支付请求失败!';
-            if ($fun && method_exists($this, $fun)) {
-                $temp = $this->$fun($array['err_code']);
-                $temp && $msg = $temp;
-            } else {
-                isset($array['err_code_des']) && $msg = $array['err_code_des'];
-            }
-            throw new \Radish\WeChatPay\Exception\WeChatPayException($msg, $xml);
+        $array = json_decode($json, true);
+        if (!in_array($array['return_code'], ['ok', 'fail'])) {
+            isset($array['return_msg']) && $message = $array['return_msg'];
+            $mes = $message == '未知错误！' ? $this->getCodeMap($array['return_code']) : $message;
+            throw new \Radish\Uupt\Exception\UuptException($mes, $json);
         } else {
-            return $array;            
+            return $array;
         }
     }
 
@@ -102,30 +97,11 @@ trait Common
         ksort($params);
         $d = $string = '';
         foreach ($params as $key => $val) {
-            $val && $string .= $d . $key . '=' . $val;
+            !is_null($val) && $string .= $d . $key . '=' . $val;
             $d = $connector;
         }
 
         return $string;
-    }
-
-    /**
-     * 获取错误代码
-     * @param  string $key 代码
-     * @return String 错误代码与信息
-     */
-    protected function getCodeMap($key)
-    {
-        $codeMap = [
-            //获取access_token
-            '-1' => '系统繁忙，此时请开发者稍候再试',
-            '40001' => 'AppSecret错误或者AppSecret不属于这个公众号，请开发者确认AppSecret的正确性',
-            '40002' => '请确保grant_type字段值为client_credential',
-            '40164' => '调用接口的IP地址不在白名单中，请在接口IP白名单中进行设置。（小程序及小游戏调用不要求IP地址在白名单内。）',
-        ];
-        $info = isset($codeMap[$key]) ? $codeMap[$key] : false;
-
-        return $info;
     }
 
     /**
@@ -149,20 +125,13 @@ trait Common
      * @param  string $urlKey 请求地址
      * @return mixed          响应结果
      */
-    protected function sendResult(array $params, string $urlKey, bool $sslCert = false)
+    protected function sendResult(array $params, string $urlKey)
     {
         $params['sign'] = strtoupper($this->sign($params));
         $option = [
             CURLOPT_SSL_VERIFYPEER => false,
             CURLOPT_SSL_VERIFYHOST => false,
         ];
-        if ($sslCert) {
-            $option[CURLOPT_SSLCERTTYPE] = 'PEM';
-            $option[CURLOPT_SSLCERT] = self::$apiclientCert;
-            $option[CURLOPT_SSLKEYTYPE] = 'PEM';
-            $option[CURLOPT_SSLKEY] = self::$apiclientKey;
-        }
-        $params = $this->arrayToXml($params, false);
         $result = Curl::post($this->getApiUrl($urlKey), $params, $option);
 
         return $this->getMessage($result);
@@ -177,32 +146,11 @@ trait Common
      */
     public function sign($params, $connector = '&', $type = 'md5')
     {
-        $sign = $this->jointString($params, $connector) . $connector . 'key=' . self::$key;
+        $sign = $this->jointString($params, $connector) . $connector . 'key=' . $this->appKey;
         if ($type == 'md5') {
-            $sign = md5($sign);
+            $sign = md5(strtoupper($sign));
         }
 
         return $sign;
-    }
-
-    /**
-     * 获取请求连接
-     * @param  string $key 连接类型
-     * @return string      请求地址
-     */
-    protected function getApiUrl($key)
-    {
-        $urlMap = [
-            //POST 红包接口 1800次/分钟
-            'send_red_pack' => 'https://api.mch.weixin.qq.com/mmpaymkttransfers/sendredpack',
-            //POST 企业付款到用户微信零钱  1800次/分钟
-            'pay_for_change' => 'https://api.mch.weixin.qq.com/mmpaymkttransfers/promotion/transfers',
-            //POST 统一下单
-            'order_unify' => 'https://api.mch.weixin.qq.com/pay/unifiedorder',
-            //POST 申请退款
-            'order_refund' => 'https://api.mch.weixin.qq.com/secapi/pay/refund',
-        ];
-
-        return $urlMap[$key];
     }
 }
