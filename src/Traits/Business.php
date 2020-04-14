@@ -69,9 +69,40 @@ trait Business
     public function select(array $options)
     {
         $params = $this->formatParams($options);
-        
+
         return $this->sendResult($params, 'select_order');
     }
 
+    /**
+     * 查询订单
+     * @param  array  $params    请求参数
+     * @return array             响应结果
+     */
+    public function notify(array $params)
+    {
+        $sign = strtoupper($params['sign']);
+        unset($params['sign']);
+        $newSign = strtoupper($this->notifySign($params));
+        if ($sign === $newSign) {
+            return $params;
+        } else {
+            return false;
+        }
+    }
+
+    protected function notifySign($params)
+    {
+        ksort($params);
+        $d = $string = '';
+        $connector = '&';
+        foreach ($params as $key => $val) {
+            (!is_null($val) && $val) && $string .= $d . $key . '=' . $val;
+            $d = $connector;
+        }
+        $sign = $string . $connector . 'key=' . $this->appKey;
+        $sign = md5(strtoupper($sign));
+
+        return $sign;
+    }
     
 }
